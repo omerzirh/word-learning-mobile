@@ -25,12 +25,6 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="cards"
-        options={{
           title: 'Kartlar',
           tabBarIcon: ({ color }) => <FontAwesome size={24} name="list" color={color} />,
         }}
@@ -52,8 +46,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-
-// Redirect from index to cards
-export function Index() {
-  return <Redirect href="/cards" />;
-} 

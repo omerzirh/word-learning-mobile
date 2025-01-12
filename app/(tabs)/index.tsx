@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, Alert, ScrollView } from 'react-native';
 import { useCardStore } from '../../src/store/useCardStore';
 import { Card } from '../../src/types';
+import { useTheme } from '../../src/hooks/useTheme';
 
 export default function CardsScreen() {
+  const { colors } = useTheme();
   const { cards, loading, addCard, loadCards } = useCardStore();
   const [modalVisible, setModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<'learning' | 'known'>('learning');
@@ -39,7 +41,7 @@ export default function CardsScreen() {
   const renderCard = (card: Card) => (
     <TouchableOpacity 
       key={card.id} 
-      style={styles.card} 
+      style={[styles.card, { backgroundColor: colors.card }]} 
       onPress={() => {
         Alert.alert(
           card.english,
@@ -48,19 +50,21 @@ export default function CardsScreen() {
         );
       }}
     >
-      <Text style={styles.cardText}>{card.english}</Text>
-      <View style={styles.cardStats}>
-        <Text style={styles.cardStatText}>Başarı: {(card.successRate * 100).toFixed(0)}%</Text>
+      <Text style={[styles.cardText, { color: colors.text }]}>{card.english}</Text>
+      <Text style={[styles.cardSubText, { color: colors.secondary }]}>{card.turkish}</Text>
+      <View style={[styles.cardStats, { borderTopColor: colors.border }]}>
+        <Text style={[styles.cardStatText, { color: colors.secondary }]}>Başarı: {(card.successRate * 100).toFixed(0)}%</Text>
+        <Text style={[styles.cardStatText, { color: colors.secondary }]}>Çalışma: {card.studyCount}</Text>
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Kartlarım</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Kartlarım</Text>
         <TouchableOpacity
-          style={styles.addButton}
+          style={[styles.addButton, { backgroundColor: colors.primary }]}
           onPress={() => setModalVisible(true)}
         >
           <Text style={styles.addButtonText}>+ Yeni Kart</Text>
@@ -69,27 +73,46 @@ export default function CardsScreen() {
 
       <View style={styles.searchContainer}>
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { 
+            backgroundColor: colors.card,
+            color: colors.text,
+            borderColor: colors.border
+          }]}
           placeholder="Kart ara..."
+          placeholderTextColor={colors.secondary}
           value={searchText}
           onChangeText={setSearchText}
         />
       </View>
 
-      <View style={styles.tabContainer}>
+      <View style={[styles.tabContainer, { backgroundColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'learning' && styles.activeTab]}
+          style={[
+            styles.tab,
+            activeTab === 'learning' && [styles.activeTab, { backgroundColor: colors.card }]
+          ]}
           onPress={() => setActiveTab('learning')}
         >
-          <Text style={[styles.tabText, activeTab === 'learning' && styles.activeTabText]}>
+          <Text style={[
+            styles.tabText,
+            { color: colors.secondary },
+            activeTab === 'learning' && { color: colors.primary }
+          ]}>
             Öğreniliyor ({cards.filter(c => c.status === 'learning').length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'known' && styles.activeTab]}
+          style={[
+            styles.tab,
+            activeTab === 'known' && [styles.activeTab, { backgroundColor: colors.card }]
+          ]}
           onPress={() => setActiveTab('known')}
         >
-          <Text style={[styles.tabText, activeTab === 'known' && styles.activeTabText]}>
+          <Text style={[
+            styles.tabText,
+            { color: colors.secondary },
+            activeTab === 'known' && { color: colors.primary }
+          ]}>
             Öğrenildi ({cards.filter(c => c.status === 'known').length})
           </Text>
         </TouchableOpacity>
@@ -98,7 +121,7 @@ export default function CardsScreen() {
       <ScrollView style={styles.cardList}>
         {filteredCards.map(card => renderCard(card))}
         {filteredCards.length === 0 && (
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyText, { color: colors.secondary }]}>
             {activeTab === 'learning' ? 'Öğrenilecek kart yok' : 'Öğrenilmiş kart yok'}
           </Text>
         )}
@@ -110,24 +133,34 @@ export default function CardsScreen() {
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Yeni Kart Ekle</Text>
+        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Yeni Kart Ekle</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { 
+                backgroundColor: colors.background,
+                color: colors.text,
+                borderColor: colors.border
+              }]}
               placeholder="İngilizce"
+              placeholderTextColor={colors.secondary}
               value={newCard.english}
               onChangeText={(text) => setNewCard(prev => ({ ...prev, english: text }))}
             />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { 
+                backgroundColor: colors.background,
+                color: colors.text,
+                borderColor: colors.border
+              }]}
               placeholder="Türkçe"
+              placeholderTextColor={colors.secondary}
               value={newCard.turkish}
               onChangeText={(text) => setNewCard(prev => ({ ...prev, turkish: text }))}
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
+                style={[styles.modalButton, { backgroundColor: colors.error }]}
                 onPress={() => {
                   setModalVisible(false);
                   setNewCard({ english: '', turkish: '' });
@@ -136,7 +169,7 @@ export default function CardsScreen() {
                 <Text style={styles.modalButtonText}>İptal</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
+                style={[styles.modalButton, { backgroundColor: colors.success }]}
                 onPress={handleAddCard}
               >
                 <Text style={styles.modalButtonText}>Kaydet</Text>
@@ -153,7 +186,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f5f5f5',
   },
   header: {
     flexDirection: 'row',
@@ -166,7 +198,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   addButton: {
-    backgroundColor: '#007AFF',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 8,
@@ -180,15 +211,14 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   searchInput: {
-    backgroundColor: 'white',
     padding: 12,
     borderRadius: 8,
     fontSize: 16,
+    borderWidth: 1,
   },
   tabContainer: {
     flexDirection: 'row',
     marginBottom: 15,
-    backgroundColor: '#E5E5EA',
     borderRadius: 8,
     padding: 4,
   },
@@ -203,17 +233,11 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 16,
-    color: '#666',
-  },
-  activeTabText: {
-    color: '#007AFF',
-    fontWeight: '600',
   },
   cardList: {
     flex: 1,
   },
   card: {
-    backgroundColor: 'white',
     padding: 15,
     borderRadius: 12,
     marginBottom: 10,
@@ -233,35 +257,29 @@ const styles = StyleSheet.create({
   },
   cardSubText: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 8,
   },
   cardStats: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: '#eee',
     paddingTop: 8,
     marginTop: 4,
   },
   cardStatText: {
     fontSize: 14,
-    color: '#666',
   },
   emptyText: {
     textAlign: 'center',
     fontSize: 16,
-    color: '#666',
     marginTop: 20,
   },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    backgroundColor: 'white',
     borderRadius: 15,
     padding: 20,
     width: '90%',
@@ -274,11 +292,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   input: {
-    backgroundColor: '#f5f5f5',
     padding: 12,
     borderRadius: 8,
     fontSize: 16,
     marginBottom: 12,
+    borderWidth: 1,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -290,12 +308,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     marginHorizontal: 5,
-  },
-  cancelButton: {
-    backgroundColor: '#ff3b30',
-  },
-  saveButton: {
-    backgroundColor: '#34c759',
   },
   modalButtonText: {
     color: 'white',

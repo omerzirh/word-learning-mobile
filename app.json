@@ -16,7 +16,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo-kelime-white-bg.png",
+        "foregroundImage": "./assets/images/logo-kelime-bg.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.tersfilozof.kelimekarti",
