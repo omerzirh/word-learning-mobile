@@ -1,74 +1,306 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, Alert, ScrollView } from 'react-native';
+import { useCardStore } from '../../src/store/useCardStore';
+import { Card } from '../../src/types';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+export default function CardsScreen() {
+  const { cards, loading, addCard, loadCards } = useCardStore();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState<'learning' | 'known'>('learning');
+  const [searchText, setSearchText] = useState('');
+  const [newCard, setNewCard] = useState({
+    english: '',
+    turkish: '',
+  });
 
-export default function HomeScreen() {
+  useEffect(() => {
+    loadCards();
+  }, []);
+
+  const filteredCards = cards
+    .filter(card => card.status === activeTab)
+    .filter(card => 
+      card.english.toLowerCase().includes(searchText.toLowerCase()) ||
+      card.turkish.toLowerCase().includes(searchText.toLowerCase())
+    );
+
+  const handleAddCard = async () => {
+    if (newCard.english.trim() && newCard.turkish.trim()) {
+      await addCard({
+        english: newCard.english.trim(),
+        turkish: newCard.turkish.trim(),
+        status: 'learning',
+      });
+      setNewCard({ english: '', turkish: '' });
+      setModalVisible(false);
+    }
+  };
+
+  const renderCard = (card: Card) => (
+    <TouchableOpacity 
+      key={card.id} 
+      style={styles.card} 
+      onPress={() => {
+        Alert.alert(
+          card.english,
+          card.turkish,
+          [{ text: 'Tamam', style: 'default' }]
+        );
+      }}
+    >
+      <Text style={styles.cardText}>{card.english}</Text>
+      <View style={styles.cardStats}>
+        <Text style={styles.cardStatText}>Başarı: {(card.successRate * 100).toFixed(0)}%</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Kartlarım</Text>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => setModalVisible(true)}
+        >
+          <Text style={styles.addButtonText}>+ Yeni Kart</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Kart ara..."
+          value={searchText}
+          onChangeText={setSearchText}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      </View>
+
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'learning' && styles.activeTab]}
+          onPress={() => setActiveTab('learning')}
+        >
+          <Text style={[styles.tabText, activeTab === 'learning' && styles.activeTabText]}>
+            Öğreniliyor ({cards.filter(c => c.status === 'learning').length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'known' && styles.activeTab]}
+          onPress={() => setActiveTab('known')}
+        >
+          <Text style={[styles.tabText, activeTab === 'known' && styles.activeTabText]}>
+            Öğrenildi ({cards.filter(c => c.status === 'known').length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.cardList}>
+        {filteredCards.map(card => renderCard(card))}
+        {filteredCards.length === 0 && (
+          <Text style={styles.emptyText}>
+            {activeTab === 'learning' ? 'Öğrenilecek kart yok' : 'Öğrenilmiş kart yok'}
+          </Text>
+        )}
+      </ScrollView>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Yeni Kart Ekle</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="İngilizce"
+              value={newCard.english}
+              onChangeText={(text) => setNewCard(prev => ({ ...prev, english: text }))}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Türkçe"
+              value={newCard.turkish}
+              onChangeText={(text) => setNewCard(prev => ({ ...prev, turkish: text }))}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setModalVisible(false);
+                  setNewCard({ english: '', turkish: '' });
+                }}
+              >
+                <Text style={styles.modalButtonText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleAddCard}
+              >
+                <Text style={styles.modalButtonText}>Kaydet</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#f5f5f5',
   },
-  stepContainer: {
-    gap: 8,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  addButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  searchContainer: {
+    marginBottom: 15,
+  },
+  searchInput: {
+    backgroundColor: 'white',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 16,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 15,
+    backgroundColor: '#E5E5EA',
+    borderRadius: 8,
+    padding: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  activeTab: {
+    backgroundColor: 'white',
+  },
+  tabText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  activeTabText: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  cardList: {
+    flex: 1,
+  },
+  card: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  cardText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  cardSubText: {
+    fontSize: 16,
+    color: '#666',
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  cardStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 8,
+    marginTop: 4,
   },
-});
+  cardStatText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  emptyText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#666',
+    marginTop: 20,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  input: {
+    backgroundColor: '#f5f5f5',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 16,
+    marginBottom: 12,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: '#ff3b30',
+  },
+  saveButton: {
+    backgroundColor: '#34c759',
+  },
+  modalButtonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+}); 
