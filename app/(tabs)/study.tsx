@@ -1,126 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { useCardStore } from '../../src/store/useCardStore';
 import { Card } from '../../src/types';
+import { useTheme } from '../../src/hooks/useTheme';
 
 export default function StudyScreen() {
-  const { cards, updateCard, studyStats, updateStudyStats, loadCards } = useCardStore();
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [groupSize, setGroupSize] = useState<5 | 10>(10);
-  const [showResults, setShowResults] = useState(false);
-  const [isStudyActive, setIsStudyActive] = useState(false);
+  const { colors } = useTheme();
+  const { cards, updateCard, studyStats, updateStudyStats } = useCardStore();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [studyCards, setStudyCards] = useState<Card[]>([]);
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [sessionSize, setSessionSize] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [timer, setTimer] = useState<ReturnType<typeof setInterval> | null>(null);
   const [sessionStats, setSessionStats] = useState({
     correctCount: 0,
     incorrectCount: 0,
-    duration: 0,
     startTime: new Date(),
   });
-  const [studyCards, setStudyCards] = useState<Card[]>([]);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [showResults, setShowResults] = useState(false);
 
-  useEffect(() => {
-    loadCards();
-  }, []);
-
-  // Timer'ı başlat
-  const startTimer = () => {
-    const newTimer = setInterval(() => {
-      setElapsedTime(prev => prev + 1);
-    }, 1000);
-    setTimer(newTimer);
-  };
-
-  // Timer'ı durdur
-  const stopTimer = () => {
-    if (timer) {
-      clearInterval(timer);
-      setTimer(null);
-    }
-  };
-
-  // Component unmount olduğunda timer'ı temizle
   useEffect(() => {
     return () => {
       if (timer) clearInterval(timer);
     };
   }, [timer]);
 
-  const handleFlip = () => {
-    setIsFlipped(!isFlipped);
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const handleResponse = async (correct: boolean) => {
-    try {
-      // 1. Mevcut kartı güncelle
-      const currentCard = studyCards[currentIndex];
-      
-      // Calculate total correct answers for this card
-      const totalCorrectAnswers = (currentCard.successRate * currentCard.studyCount) + (correct ? 1 : 0);
-      const newStudyCount = currentCard.studyCount + 1;
-      const newSuccessRate = totalCorrectAnswers / newStudyCount;
-
-      // A card is considered "known" if:
-      // 1. Success rate is 100% on first try OR
-      // 2. Success rate is >= 80% after multiple tries
-      const isKnown = (newStudyCount === 1 && correct) || newSuccessRate >= 0.8;
-      
-      const updatedCard = {
-        ...currentCard,
-        studyCount: newStudyCount,
-        lastStudied: new Date(),
-        successRate: newSuccessRate,
-        status: isKnown ? 'known' : 'learning'
-      } as Card;
-
-      // Kartı güncelle
-      await updateCard(updatedCard);
-
-      // 2. Session istatistiklerini güncelle
-      const newStats = {
-        correctCount: sessionStats.correctCount + (correct ? 1 : 0),
-        incorrectCount: sessionStats.incorrectCount + (correct ? 0 : 1),
-        duration: elapsedTime,
-        startTime: sessionStats.startTime,
-      };
-
-      // Her durumda kartı ters çevir
-      setIsFlipped(false);
-      
-      // 3. Son kart kontrolü
-      if (currentIndex === studyCards.length - 1) {
-        stopTimer();
-        setSessionStats(newStats);
-        
-        await updateStudyStats({
-          correct: newStats.correctCount,
-          incorrect: newStats.incorrectCount,
-          duration: newStats.duration,
-        });
-        
-        setModalVisible(true);
-      } else {
-        setSessionStats(newStats);
-        setCurrentIndex(currentIndex + 1);
-      }
-
-      // Update study cards array with the updated card
-      const updatedStudyCards = [...studyCards];
-      updatedStudyCards[currentIndex] = updatedCard;
-      setStudyCards(updatedStudyCards);
-
-    } catch (error) {
-      console.error('Error in handleResponse:', error);
-      Alert.alert(
-        'Hata',
-        'Kart güncellenirken bir sorun oluştu. Lütfen tekrar deneyin.'
-      );
-    }
-  };
-
-  const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffleArray = <T extends any>(array: T[]): T[] => {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -129,238 +42,262 @@ export default function StudyScreen() {
     return shuffled;
   };
 
-  const startNewSession = (size: 5 | 10) => {
+  const startNewSession = (size: number) => {
     const learningCards = cards.filter(card => card.status === 'learning');
-    
     if (learningCards.length === 0) {
+      setModalVisible(false);
       return;
     }
-
-    // First shuffle all learning cards
-    const shuffledAllCards = shuffleArray(learningCards);
-    // Then take the first 'size' cards
-    const selectedCards = shuffledAllCards.slice(0, size);
-
+    
+    const shuffledCards = shuffleArray(learningCards);
+    const selectedCards = shuffledCards.slice(0, Math.min(size, shuffledCards.length));
+    
     setStudyCards(selectedCards);
-    setCurrentIndex(0);
-    setIsFlipped(false);
-    setShowResults(false);
+    setCurrentCardIndex(0);
+    setShowAnswer(false);
+    setSessionSize(size);
     setModalVisible(false);
-    setGroupSize(size);
     setElapsedTime(0);
     setSessionStats({
       correctCount: 0,
       incorrectCount: 0,
-      duration: 0,
       startTime: new Date(),
     });
-    setIsStudyActive(true);
-    startTimer();
+    setShowResults(false);
+
+    // Start timer
+    const newTimer = setInterval(() => {
+      setElapsedTime(prev => prev + 1);
+    }, 1000);
+    setTimer(newTimer);
   };
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const handleResponse = async (correct: boolean) => {
+    const currentCard = studyCards[currentCardIndex];
+    const newStudyCount = currentCard.studyCount + 1;
+    const totalCorrectAnswers = correct 
+      ? (currentCard.successRate * currentCard.studyCount) + 1 
+      : (currentCard.successRate * currentCard.studyCount);
+    
+    const newSuccessRate = totalCorrectAnswers / newStudyCount;
+    const newStatus: 'learning' | 'known' = newSuccessRate >= 0.8 && newStudyCount >= 2 ? 'known' : 'learning';
+
+    const updatedCard = {
+      ...currentCard,
+      studyCount: newStudyCount,
+      successRate: newSuccessRate,
+      status: newStatus,
+      lastStudied: new Date(),
+    };
+
+    await updateCard(updatedCard);
+
+    // Update session stats
+    setSessionStats(prev => ({
+      ...prev,
+      correctCount: prev.correctCount + (correct ? 1 : 0),
+      incorrectCount: prev.incorrectCount + (correct ? 0 : 1),
+    }));
+
+    if (currentCardIndex < studyCards.length - 1) {
+      setCurrentCardIndex(prev => prev + 1);
+      setShowAnswer(false);
+    } else {
+      // Stop timer and show results
+      if (timer) clearInterval(timer);
+      setTimer(null);
+      
+      // Update study stats
+      await updateStudyStats({
+        correct: sessionStats.correctCount + (correct ? 1 : 0),
+        incorrect: sessionStats.incorrectCount + (correct ? 0 : 1),
+        duration: elapsedTime,
+      });
+      
+      setShowResults(true);
+    }
   };
 
   const handleFinishSession = () => {
+    if (timer) clearInterval(timer);
+    setTimer(null);
+    setStudyCards([]);
+    setCurrentCardIndex(0);
+    setShowAnswer(false);
+    setSessionSize(null);
     setShowResults(false);
     setModalVisible(false);
-    setStudyCards([]);
-    setCurrentIndex(0);
-    setIsFlipped(false);
-    setIsStudyActive(false);
-    loadCards(); // Kartları yeniden yükle
   };
 
-  useEffect(() => {
-    // showResults değiştiğinde modalVisible'ı güncelle
-    setModalVisible(showResults);
-  }, [showResults]);
-
-  if (!isStudyActive) {
-    const learningCards = cards.filter(card => card.status === 'learning');
-    
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Çalışma Modu</Text>
-        
-        {learningCards.length === 0 ? (
-          <Text style={styles.message}>
-            Öğrenilecek kart kalmadı! Tebrikler! 🎉
-          </Text>
-        ) : (
-          <>
-            <Text style={styles.message}>
-              {learningCards.length} adet öğrenilecek kartınız var.
-            </Text>
-            <Text style={styles.subtitle}>
-              Kaç kartla çalışmak istersiniz?
-            </Text>
-            <View style={styles.groupButtons}>
-              <TouchableOpacity
-                style={styles.groupButton}
-                onPress={() => startNewSession(5)}
-              >
-                <Text style={styles.groupButtonText}>5 Kart</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.groupButton}
-                onPress={() => startNewSession(10)}
-              >
-                <Text style={styles.groupButtonText}>10 Kart</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.cardList}>
-              <Text style={styles.listTitle}>Öğrenilecek Kartlar:</Text>
-              {learningCards.map((card, index) => (
-                <View key={card.id} style={styles.listCard}>
-                  <Text style={styles.listCardNumber}>{index + 1}.</Text>
-                  <View style={styles.listCardContent}>
-                    <Text style={styles.listCardText}>{card.english}</Text>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          </>
-        )}
-      </View>
-    );
-  }
-
-  const currentCard = studyCards[currentIndex];
+  const currentCard = studyCards[currentCardIndex];
+  const isSessionActive = studyCards.length > 0;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.progressContainer}>
-          <Text style={styles.progressText}>
-            {currentIndex + 1} / {studyCards.length}
-          </Text>
-        </View>
-        <Text style={styles.timerText}>
-          {formatTime(elapsedTime)}
-        </Text>
-      </View>
-
-      <TouchableOpacity 
-        style={styles.card} 
-        onPress={handleFlip}
-        activeOpacity={0.9}
-      >
-        <Text style={styles.cardText}>
-          {isFlipped ? currentCard.turkish : currentCard.english}
-        </Text>
-        <Text style={styles.flipHint}>
-          Kartı çevirmek için dokun
-        </Text>
-      </TouchableOpacity>
-
-      {isFlipped && (
-        <View style={styles.buttonsContainer}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {!isSessionActive ? (
+        <View style={styles.startContainer}>
+          <Text style={[styles.title, { color: colors.text }]}>Yeni Çalışma Oturumu</Text>
           <TouchableOpacity
-            style={[styles.responseButton, styles.wrongButton]}
-            onPress={() => handleResponse(false)}
+            style={[styles.startButton, { backgroundColor: colors.primary }]}
+            onPress={() => setModalVisible(true)}
           >
-            <Text style={styles.responseButtonText}>Bilmedim</Text>
+            <Text style={styles.buttonText}>Başla</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.studyContainer}>
+          <View style={styles.header}>
+            <Text style={[styles.timerText, { color: colors.secondary }]}>
+              {formatTime(elapsedTime)}
+            </Text>
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.card, { backgroundColor: colors.card }]}
+            onPress={() => setShowAnswer(true)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.cardText, { color: colors.text }]}>
+              {showAnswer ? currentCard.turkish : currentCard.english}
+            </Text>
+            {!showAnswer && (
+              <Text style={[styles.tapHint, { color: colors.secondary }]}>
+                Çeviri için dokun
+              </Text>
+            )}
           </TouchableOpacity>
           
-          <TouchableOpacity
-            style={[styles.responseButton, styles.correctButton]}
-            onPress={() => handleResponse(true)}
-          >
-            <Text style={styles.responseButtonText}>Bildim</Text>
-          </TouchableOpacity>
+          {showAnswer && (
+            <View style={styles.responseButtons}>
+              <TouchableOpacity
+                style={[styles.responseButton, { backgroundColor: colors.error }]}
+                onPress={() => handleResponse(false)}
+              >
+                <Text style={styles.buttonText}>Bilmedim</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.responseButton, { backgroundColor: colors.success }]}
+                onPress={() => handleResponse(true)}
+              >
+                <Text style={styles.buttonText}>Bildim</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={styles.progress}>
+            <Text style={[styles.progressText, { color: colors.secondary }]}>
+              {currentCardIndex + 1} / {studyCards.length}
+            </Text>
+          </View>
         </View>
       )}
 
       <Modal
         animationType="slide"
         transparent={true}
-        visible={modalVisible}
-        onRequestClose={handleFinishSession}
+        visible={modalVisible || showResults}
+        onRequestClose={() => {
+          if (showResults) {
+            handleFinishSession();
+          } else {
+            setModalVisible(false);
+          }
+        }}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Çalışma Sonuçları</Text>
-            
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Doğru:</Text>
-              <Text style={[styles.resultValue, { color: '#34c759' }]}>
-                {sessionStats.correctCount}
-              </Text>
-            </View>
-            
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Yanlış:</Text>
-              <Text style={[styles.resultValue, { color: '#ff3b30' }]}>
-                {sessionStats.incorrectCount}
-              </Text>
-            </View>
-            
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Başarı Oranı:</Text>
-              <Text style={[styles.resultValue, { color: sessionStats.correctCount / studyCards.length >= 0.8 ? '#34c759' : '#ff3b30' }]}>
-                {Math.round((sessionStats.correctCount / studyCards.length) * 100)}%
-              </Text>
-            </View>
-            
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Süre:</Text>
-              <Text style={styles.resultValue}>
-                {formatTime(sessionStats.duration)}
-              </Text>
-            </View>
+        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            {showResults ? (
+              <>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Çalışma Sonuçları</Text>
+                <View style={styles.resultRow}>
+                  <Text style={[styles.resultLabel, { color: colors.secondary }]}>Doğru:</Text>
+                  <Text style={[styles.resultValue, { color: colors.success }]}>
+                    {sessionStats.correctCount}
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={[styles.resultLabel, { color: colors.secondary }]}>Yanlış:</Text>
+                  <Text style={[styles.resultValue, { color: colors.error }]}>
+                    {sessionStats.incorrectCount}
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={[styles.resultLabel, { color: colors.secondary }]}>Başarı Oranı:</Text>
+                  <Text style={[styles.resultValue, { 
+                    color: sessionStats.correctCount / studyCards.length >= 0.8 ? colors.success : colors.error 
+                  }]}>
+                    {Math.round((sessionStats.correctCount / studyCards.length) * 100)}%
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={[styles.resultLabel, { color: colors.secondary }]}>Süre:</Text>
+                  <Text style={[styles.resultValue, { color: colors.text }]}>
+                    {formatTime(elapsedTime)}
+                  </Text>
+                </View>
 
-            <View style={styles.separator} />
+                <View style={[styles.separator, { backgroundColor: colors.border }]} />
 
-            <Text style={styles.statsTitle}>Genel İstatistikler</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Genel İstatistikler</Text>
+                <View style={styles.resultRow}>
+                  <Text style={[styles.resultLabel, { color: colors.secondary }]}>Toplam Çalışma:</Text>
+                  <Text style={[styles.resultValue, { color: colors.text }]}>
+                    {studyStats.totalSessions}
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={[styles.resultLabel, { color: colors.secondary }]}>Toplam Doğru:</Text>
+                  <Text style={[styles.resultValue, { color: colors.success }]}>
+                    {studyStats.totalCorrect}
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={[styles.resultLabel, { color: colors.secondary }]}>Toplam Yanlış:</Text>
+                  <Text style={[styles.resultValue, { color: colors.error }]}>
+                    {studyStats.totalIncorrect}
+                  </Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={[styles.resultLabel, { color: colors.secondary }]}>Toplam Süre:</Text>
+                  <Text style={[styles.resultValue, { color: colors.text }]}>
+                    {formatTime(studyStats.totalTime)}
+                  </Text>
+                </View>
 
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Toplam Çalışma:</Text>
-              <Text style={styles.resultValue}>
-                {studyStats.totalSessions + 1}
-              </Text>
-            </View>
-
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Toplam Doğru:</Text>
-              <Text style={[styles.resultValue, { color: '#34c759' }]}>
-                {studyStats.totalCorrect + sessionStats.correctCount}
-              </Text>
-            </View>
-
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Toplam Yanlış:</Text>
-              <Text style={[styles.resultValue, { color: '#ff3b30' }]}>
-                {studyStats.totalIncorrect + sessionStats.incorrectCount}
-              </Text>
-            </View>
-
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Toplam Süre:</Text>
-              <Text style={styles.resultValue}>
-                {formatTime(studyStats.totalTime + sessionStats.duration)}
-              </Text>
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.finishButton]}
-                onPress={handleFinishSession}
-              >
-                <Text style={styles.modalButtonText}>Bitir</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalButton, styles.continueButton]}
-                onPress={() => startNewSession(groupSize)}
-              >
-                <Text style={styles.modalButtonText}>Yeni Çalışma</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, { backgroundColor: colors.error }]}
+                    onPress={handleFinishSession}
+                  >
+                    <Text style={styles.buttonText}>Bitir</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, { backgroundColor: colors.success }]}
+                    onPress={() => startNewSession(sessionSize || 5)}
+                  >
+                    <Text style={styles.buttonText}>Yeni Çalışma</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Kart Sayısı Seç</Text>
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                    onPress={() => startNewSession(5)}
+                  >
+                    <Text style={styles.buttonText}>5 Kart</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                    onPress={() => startNewSession(10)}
+                  >
+                    <Text style={styles.buttonText}>10 Kart</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -372,105 +309,45 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f5f5f5',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  startContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
-    textAlign: 'center',
   },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#666',
-  },
-  message: {
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 10,
-    color: '#666',
-  },
-  cardList: {
-    marginTop: 20,
-    maxHeight: '60%',
-  },
-  listTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 10,
-    color: '#333',
-  },
-  listCard: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 8,
-    alignItems: 'center',
-  },
-  listCardNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginRight: 10,
-    color: '#666',
-    width: 30,
-  },
-  listCardContent: {
-    flex: 1,
-  },
-  listCardText: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  listCardSubtext: {
-    fontSize: 14,
-    color: '#666',
-  },
-  groupButtons: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
-    marginBottom: 20,
-  },
-  groupButton: {
-    backgroundColor: '#007AFF',
+  startButton: {
     paddingHorizontal: 30,
     paddingVertical: 15,
     borderRadius: 8,
   },
-  groupButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  progressContainer: {
+  studyContainer: {
     flex: 1,
-  },
-  progressText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  timerText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 20,
-    minHeight: 200,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  header: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    padding: 10,
+  },
+  timerText: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  card: {
+    width: '100%',
+    aspectRatio: 1.6,
+    borderRadius: 12,
+    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -482,94 +359,59 @@ const styles = StyleSheet.create({
   },
   cardText: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 20,
   },
-  flipHint: {
+  tapHint: {
     fontSize: 14,
-    color: '#999',
+    marginTop: 10,
+    opacity: 0.7,
   },
-  buttonsContainer: {
+  responseButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    width: '100%',
     marginTop: 20,
   },
   responseButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 15,
     borderRadius: 8,
     marginHorizontal: 5,
   },
-  wrongButton: {
-    backgroundColor: '#ff3b30',
-  },
-  correctButton: {
-    backgroundColor: '#34c759',
-  },
-  responseButtonText: {
+  buttonText: {
     color: 'white',
-    textAlign: 'center',
     fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  progress: {
+    marginTop: 20,
+  },
+  progressText: {
+    fontSize: 16,
   },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    backgroundColor: 'white',
     borderRadius: 15,
     padding: 20,
     width: '90%',
     maxWidth: 400,
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    textAlign: 'center',
     marginBottom: 20,
-  },
-  resultRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  resultLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  resultValue: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  newSessionButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 15,
-    borderRadius: 8,
-    marginTop: 20,
-  },
-  newSessionButtonText: {
-    color: 'white',
     textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '600',
   },
-  separator: {
-    height: 2,
-    backgroundColor: '#eee',
-    marginVertical: 20,
-  },
-  statsTitle: {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#666',
-    marginBottom: 10,
+    marginBottom: 15,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -582,16 +424,21 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginHorizontal: 5,
   },
-  finishButton: {
-    backgroundColor: '#ff3b30',
+  resultRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
   },
-  continueButton: {
-    backgroundColor: '#34c759',
+  resultLabel: {
+    fontSize: 16,
   },
-  modalButtonText: {
-    color: 'white',
-    textAlign: 'center',
+  resultValue: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  separator: {
+    height: 1,
+    marginVertical: 15,
   },
 }); 

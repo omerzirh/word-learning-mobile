@@ -1,60 +1,59 @@
-import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Tabs, Redirect } from 'expo-router';
+import { useTheme } from '../../src/hooks/useTheme';
 
 export default function TabLayout() {
+  const { colors } = useTheme();
+
   return (
     <Tabs
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-
-          switch (route.name) {
-            case 'index':
-              iconName = focused ? 'home' : 'home-outline';
-              break;
-            case 'cards':
-              iconName = focused ? 'card' : 'card-outline';
-              break;
-            case 'study':
-              iconName = focused ? 'book' : 'book-outline';
-              break;
-            case 'stats':
-              iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-              break;
-            default:
-              iconName = 'help-outline';
-          }
-
-          return <Ionicons name={iconName as any} size={size} color={color} />;
+      screenOptions={{
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.secondary,
+        tabBarStyle: {
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
         },
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: 'gray',
-      })}
-    >
+        headerStyle: {
+          backgroundColor: colors.card,
+        },
+        headerTintColor: colors.text,
+        headerTitleStyle: {
+          color: colors.text,
+        },
+      }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Ana Sayfa',
+          href: null,
         }}
       />
       <Tabs.Screen
         name="cards"
         options={{
-          title: 'Kartlarım',
+          title: 'Kartlar',
+          tabBarIcon: ({ color }) => <FontAwesome size={24} name="list" color={color} />,
         }}
       />
       <Tabs.Screen
         name="study"
         options={{
-          title: 'Çalış',
+          title: 'Çalışma',
+          tabBarIcon: ({ color }) => <FontAwesome size={24} name="book" color={color} />,
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
-          title: 'İstatistikler',
+          title: 'İstatistik',
+          tabBarIcon: ({ color }) => <FontAwesome size={24} name="bar-chart" color={color} />,
         }}
       />
     </Tabs>
   );
+}
+
+// Redirect from index to cards
+export function Index() {
+  return <Redirect href="/cards" />;
 } 

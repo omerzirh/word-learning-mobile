@@ -1,50 +1,87 @@
-# Welcome to your Expo app 👋
+# Kelime Kartı
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A modern flashcard app for learning English words, built with React Native and Expo.
 
-## Get started
+## Features
 
-1. Install dependencies
+- 📝 Create and manage word cards
+- 🔄 Study mode with spaced repetition
+- 📊 Track your learning progress
+- 🌓 Automatic dark mode support
+- 📱 Works offline with local storage
+- 🔄 Random card presentation
+- ✨ Clean and intuitive UI
 
-   ```bash
-   npm install
-   ```
+## Getting Started
 
-2. Start the app
+### Prerequisites
 
-   ```bash
-    npx expo start
-   ```
+- Node.js (v14 or newer)
+- npm or yarn
+- Expo CLI
+- iOS Simulator or Android Emulator (optional)
 
-In the output, you'll find options to open the app in a
+### Installation
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+1. Clone the repository:
 ```bash
-npm run reset-project
+git clone https://github.com/yourusername/kelime-karti.git
+cd kelime-karti
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Install dependencies:
+```bash
+npm install
+```
 
-## Learn more
+3. Start the development server:
+```bash
+npm start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+### Running on Device
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+1. Install Expo Go on your device
+2. Scan the QR code from the terminal
+3. The app will load on your device
 
-## Join the community
+## Usage
 
-Join our community of developers creating universal apps.
+### Adding Cards
+- Tap the "+" button to add a new card
+- Enter the English word and Turkish translation
+- The card will be added to your learning deck
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Study Mode
+- Choose between 5 or 10 cards per session
+- Tap to flip cards
+- Mark cards as "Known" or "Learning"
+- Cards marked as known will be moved to the known deck
+- Progress is automatically saved
+
+### Statistics
+- View your learning progress
+- Track known and learning cards
+- See success rates and study time
+
+## Technical Details
+
+- Built with React Native and Expo
+- Uses AsyncStorage for local data persistence
+- Implements spaced repetition algorithm
+- Supports system-wide dark mode
+- Version control for data migrations
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Thanks to all contributors
+- Built with Expo and React Native
+- Uses React Navigation for routing
